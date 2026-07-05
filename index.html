@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>YT 筆記館</title>
+<meta name="theme-color" content="#10141f">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#10141f; --surface:#1a2130; --surface2:#232c40; --line:#2d3a55;
+  --ink:#ece7da; --ink-dim:#9aa3b5; --gold:#d4a94c; --gold-soft:#e8c87a;
+  --red:#e5533d; --ok:#6fbf8f;
+  --serif:'Noto Serif TC',serif; --sans:'Noto Sans TC',sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;
+  padding-bottom:calc(64px + env(safe-area-inset-bottom));}
+header.app{position:sticky;top:0;z-index:20;background:linear-gradient(var(--bg) 75%,rgba(16,20,31,.92));
+  padding:calc(10px + env(safe-area-inset-top)) 16px 8px;display:flex;align-items:baseline;gap:8px;
+  border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header.app h1{font-family:var(--serif);font-size:19px;color:var(--gold);letter-spacing:.06em}
+header.app .rec{width:9px;height:9px;border-radius:50%;background:var(--red);display:inline-block;
+  box-shadow:0 0 8px rgba(229,83,61,.7);transform:translateY(-1px)}
+header.app small{color:var(--ink-dim);font-size:12px}
+main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
+.view{display:none}.view.on{display:block;animation:fade .18s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+h2.sec{font-family:var(--serif);font-size:15px;color:var(--gold-soft);margin:18px 0 8px;
+  display:flex;align-items:center;gap:8px}
+h2.sec::after{content:'';flex:1;height:1px;background:var(--line)}
+label.fl{display:block;font-size:12.5px;color:var(--ink-dim);margin:10px 0 4px;letter-spacing:.05em}
+input[type=text],input[type=search],textarea,select{
+  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  color:var(--ink);font-family:var(--sans);font-size:15px;padding:10px 12px;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--gold)}
+textarea{min-height:96px;resize:vertical}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink-dim) 50%),linear-gradient(135deg,var(--ink-dim) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 55%,calc(100% - 13px) 55%;background-size:5px 5px;background-repeat:no-repeat}
+.row{display:flex;gap:8px}.row>*{flex:1}
+button{font-family:var(--sans);cursor:pointer;border:none;border-radius:10px;font-size:14.5px}
+.btn{background:var(--surface2);color:var(--ink);padding:10px 14px;border:1px solid var(--line)}
+.btn:active{transform:scale(.97)}
+.btn-gold{background:var(--gold);color:#1b1608;font-weight:700;padding:12px;width:100%;font-size:16px;
+  letter-spacing:.1em;margin-top:18px;border:none}
+.btn-mini{background:none;border:1px dashed var(--line);color:var(--ink-dim);padding:7px 12px;font-size:13px;border-radius:8px}
+.btn-danger{background:none;border:1px solid #6b3a33;color:#e08a7a;padding:6px 12px;font-size:13px}
+.hint{font-size:12px;color:var(--ink-dim);margin-top:4px}
+/* 影片預覽 */
+.preview{display:none;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:10px;margin-top:10px;align-items:center}
+.preview.on{display:flex}
+.preview img{width:112px;border-radius:8px;background:#000;flex-shrink:0}
+.preview .pt{font-size:13.5px;line-height:1.45;color:var(--ink)}
+/* 時間重點列 */
+.mark-row{display:grid;grid-template-columns:86px 1fr;gap:8px;margin-bottom:8px}
+.mark-row input.tc{font-family:var(--mono);text-align:center;letter-spacing:.05em;color:var(--gold-soft)}
+/* 標籤 chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.chip{background:var(--surface);border:1px solid var(--line);color:var(--ink-dim);
+  border-radius:999px;padding:6px 14px;font-size:13.5px}
+.chip.on{background:var(--gold);color:#1b1608;border-color:var(--gold);font-weight:700}
+.chip.sub{padding:5px 12px;font-size:13px}
+/* 卡片 */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:14px}
+.card .top{display:flex;gap:10px}
+.card .thumb{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:#000;flex-shrink:0}
+.card .ti{font-size:14.5px;font-weight:500;line-height:1.4;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.badge{font-size:11.5px;border-radius:6px;padding:2px 8px;letter-spacing:.03em}
+.badge.date{background:var(--surface2);color:var(--ink-dim);font-family:var(--mono)}
+.badge.cat{background:rgba(212,169,76,.16);color:var(--gold-soft);border:1px solid rgba(212,169,76,.35)}
+.badge.sub{background:var(--surface2);color:var(--ink);border:1px solid var(--line)}
+.memo{font-size:13.5px;color:var(--ink);margin-top:10px;white-space:pre-wrap;
+  border-left:2px solid var(--gold);padding-left:10px}
+.marks{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.mark-btn{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--line);
+  border-radius:9px;padding:8px 10px;text-align:left;color:var(--ink);width:100%}
+.mark-btn:active{border-color:var(--gold)}
+.mark-btn .tc{font-family:var(--mono);color:var(--gold);font-size:13px;flex-shrink:0;
+  background:rgba(212,169,76,.12);border-radius:6px;padding:2px 7px}
+.mark-btn .tc::before{content:'▶ ';font-size:10px}
+.mark-btn .mn{font-size:13.5px;line-height:1.4}
+.card .acts{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}
+.empty{text-align:center;color:var(--ink-dim);padding:40px 10px;font-size:14px}
+.empty b{color:var(--gold-soft);font-family:var(--serif)}
+/* 日曆 */
+.cal{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-head .m{font-family:var(--serif);font-size:16.5px;color:var(--gold-soft);letter-spacing:.08em}
+.cal-head button{background:var(--surface2);border:1px solid var(--line);color:var(--ink);
+  width:36px;height:36px;border-radius:9px;font-size:16px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-grid .wd{text-align:center;font-size:11.5px;color:var(--ink-dim);padding:4px 0}
+.cal-grid .d{aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;font-size:13.5px;color:var(--ink);background:none;border:1px solid transparent;position:relative}
+.cal-grid .d.out{color:#4a5468}
+.cal-grid .d.today{border-color:var(--line)}
+.cal-grid .d.has{background:var(--surface2);border:1px solid var(--line)}
+.cal-grid .d.has .n{color:var(--gold-soft);font-weight:700}
+.cal-grid .d .cnt{font-size:9.5px;color:var(--gold);font-family:var(--mono);line-height:1}
+.cal-grid .d.sel{background:var(--gold);border-color:var(--gold)}
+.cal-grid .d.sel .n,.cal-grid .d.sel .cnt{color:#1b1608}
+.cal-result-title{font-size:13.5px;color:var(--ink-dim);margin:14px 0 8px}
+.cal-result-title b{color:var(--gold-soft);font-family:var(--mono)}
+/* 標籤管理 */
+.tagbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.tagbox .tn{display:flex;align-items:center;gap:8px}
+.tagbox .tn b{font-size:15px;color:var(--gold-soft);flex:1}
+.tagbox .tn button{font-size:12px}
+/* 底部導覽 */
+nav.tab{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(16,20,31,.96);
+  border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(8px)}
+nav.tab button{flex:1;background:none;color:var(--ink-dim);padding:9px 0 7px;font-size:11.5px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:0}
+nav.tab button .ic{font-size:19px;line-height:1}
+nav.tab button.on{color:var(--gold)}
+.toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:var(--gold);color:#1b1608;
+  font-weight:700;font-size:14px;padding:9px 20px;border-radius:999px;z-index:50;opacity:0;transition:.25s;pointer-events:none}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="app"><span class="rec"></span><h1>YT 筆記館</h1><small>看過的好影片，留下重點</small></header>
+
+<main>
+
+<!-- ═══ 新增 / 編輯 ═══ -->
+<section id="view-add" class="view on">
+  <h2 class="sec">影片來源</h2>
+  <div class="row">
+    <input type="text" id="f-url" placeholder="貼上 YouTube 網址…" inputmode="url">
+    <button class="btn" style="flex:0 0 auto" onclick="pasteUrl()">📋 貼上</button>
+  </div>
+  <p class="hint">在 YouTube 按「分享」→ 選「YT 筆記館」，網址會自動帶入。</p>
+  <div class="preview" id="preview">
+    <img id="p-thumb" alt=""><div class="pt" id="p-title-show"></div>
+  </div>
+  <label class="fl">影片標題（自動抓取，可修改）</label>
+  <input type="text" id="f-title" placeholder="影片標題">
+
+  <h2 class="sec">看後心得</h2>
+  <textarea id="f-memo" placeholder="這支影片給我的重點與感想…"></textarea>
+
+  <h2 class="sec">時間重點標記</h2>
+  <p class="hint" style="margin:0 0 8px">時間格式：12:34 或 1:02:45，之後在清單按一下就能跳到該段。</p>
+  <div id="marks-box"></div>
+  <button class="btn-mini" onclick="addMarkRow()">＋ 再加一行</button>
+
+  <h2 class="sec">分類標籤</h2>
+  <div class="row">
+    <div><label class="fl">大標籤</label><select id="f-cat" onchange="onCatChange()"></select></div>
+    <div><label class="fl">子標籤</label><select id="f-sub"></select></div>
+  </div>
+  <p class="hint">選「＋ 新增…」可直接建立新標籤，也可到「更多」頁統一管理。</p>
+
+  <button class="btn-gold" id="save-btn" onclick="saveEntry()">存 入 筆 記 館</button>
+  <button class="btn-mini" id="cancel-edit" style="width:100%;margin-top:10px;display:none" onclick="cancelEdit()">取消編輯</button>
+</section>
+
+<!-- ═══ 影片庫（關鍵字＋標籤搜尋） ═══ -->
+<section id="view-lib" class="view">
+  <input type="search" id="q" placeholder="🔍 搜尋標題、心得、重點…" oninput="renderLib()">
+  <div class="chips" id="cat-chips"></div>
+  <div class="chips" id="sub-chips"></div>
+  <div id="lib-list"></div>
+</section>
+
+<!-- ═══ 日曆搜尋 ═══ -->
+<section id="view-cal" class="view">
+  <div class="cal">
+    <div class="cal-head">
+      <button onclick="calMove(-1)">‹</button>
+      <span class="m" id="cal-month"></span>
+      <button onclick="calMove(1)">›</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+  <div class="cal-result-title" id="cal-sel-label">點選有金點的日期，列出當天存入的影片。</div>
+  <div id="cal-list"></div>
+</section>
+
+<!-- ═══ 更多：標籤管理＋備份 ═══ -->
+<section id="view-more" class="view">
+  <h2 class="sec">標籤管理（二層）</h2>
+  <div class="row">
+    <input type="text" id="new-cat" placeholder="新增大標籤，如：法律">
+    <button class="btn" style="flex:0 0 auto" onclick="addCat()">新增</button>
+  </div>
+  <div id="tag-admin" style="margin-top:12px"></div>
+
+  <h2 class="sec">資料備份</h2>
+  <p class="hint" style="margin-bottom:10px">資料存在這支手機的瀏覽器裡。建議定期匯出 JSON 備份；換手機時匯入即可還原。Excel 適合列印與整理，JSON 才能匯回 App。</p>
+  <div class="row">
+    <button class="btn" onclick="exportJson()">⬇ 匯出備份</button>
+    <button class="btn" onclick="document.getElementById('imp').click()">⬆ 匯入備份</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button class="btn" onclick="exportExcel()">📊 匯出 Excel（.xlsx）</button>
+  </div>
+  <input type="file" id="imp" accept=".json" style="display:none" onchange="importJson(this)">
+  <p class="hint" id="stat" style="margin-top:12px"></p>
+</section>
+
+</main>
+
+<nav class="tab">
+  <button id="tab-add" class="on" onclick="showView('add')"><span class="ic">✚</span>新增</button>
+  <button id="tab-lib" onclick="showView('lib')"><span class="ic">🎞</span>影片庫</button>
+  <button id="tab-cal" onclick="showView('cal')"><span class="ic">📅</span>日曆</button>
+  <button id="tab-more" onclick="showView('more')"><span class="ic">⚙</span>更多</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ───────── 資料層 ───────── */
+const LS_E='ytm_entries', LS_T='ytm_tags';
+let entries=[], tags=[], editingId=null;
+try{ entries=JSON.parse(localStorage.getItem(LS_E)||'[]'); }catch(e){ entries=[]; }
+try{ tags=JSON.parse(localStorage.getItem(LS_T)||'null'); }catch(e){}
+if(!Array.isArray(tags)||!tags.length){
+  tags=[{name:'法律',subs:['法規','法院組織','判決案例']},
+        {name:'經營管理',subs:['策略','行銷','財務']},
+        {name:'語言學習',subs:['日語','英語']}];
+  saveTags();
+}
+function saveEntries(){ localStorage.setItem(LS_E,JSON.stringify(entries)); }
+function saveTags(){ localStorage.setItem(LS_T,JSON.stringify(tags)); }
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+/* ───────── 小工具 ───────── */
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),1800); }
+function esc(s){ return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function extractId(s){ const m=(s||'').match(/(?:youtube\.com\/(?:watch\?[^ ]*v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/); return m?m[1]:null; }
+function parseTime(s){ s=(s||'').trim(); if(!s) return null;
+  const p=s.split(':').map(x=>x.trim());
+  if(p.some(x=>x===''||isNaN(x))) return null;
+  let sec=0; for(const x of p) sec=sec*60+Number(x);
+  return sec>=0?Math.floor(sec):null; }
+function fmtTime(sec){ const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  return h? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') : m+':'+String(s).padStart(2,'0'); }
+function fmtDate(iso){ const d=new Date(iso);
+  return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0'); }
+function dayKey(iso){ return fmtDate(iso); }
+async function fetchTitle(id){
+  const u=encodeURIComponent('https://www.youtube.com/watch?v='+id);
+  try{ const r=await fetch('https://www.youtube.com/oembed?url='+u+'&format=json');
+       if(r.ok){ const j=await r.json(); if(j.title) return j.title; } }catch(e){}
+  try{ const r=await fetch('https://noembed.com/embed?url='+u);
+       if(r.ok){ const j=await r.json(); if(j.title) return j.title; } }catch(e){}
+  return '';
+}
+
+/* ───────── 視圖切換 ───────── */
+function showView(v){
+  for(const k of ['add','lib','cal','more']){
+    document.getElementById('view-'+k).classList.toggle('on',k===v);
+    document.getElementById('tab-'+k).classList.toggle('on',k===v);
+  }
+  if(v==='lib') renderLib();
+  if(v==='cal') renderCal();
+  if(v==='more'){ renderTagAdmin(); renderStat(); }
+  window.scrollTo(0,0);
+}
+
+/* ───────── 新增頁 ───────── */
+function addMarkRow(t='',n=''){
+  const box=document.getElementById('marks-box');
+  const div=document.createElement('div'); div.className='mark-row';
+  div.innerHTML='<input type="text" class="tc" placeholder="12:34" inputmode="numeric" value="'+esc(t)+'">'+
+                '<input type="text" class="mk" placeholder="這個時間點的重點…" value="'+esc(n)+'">';
+  box.appendChild(div);
+}
+function resetMarks(marks){
+  const box=document.getElementById('marks-box'); box.innerHTML='';
+  const list=(marks&&marks.length)?marks:[{},{},{}];
+  list.forEach(m=>addMarkRow(m.t!=null?fmtTime(m.t):'', m.note||''));
+  while(box.children.length<3) addMarkRow();
+}
+async function onUrlInput(){
+  const id=extractId(document.getElementById('f-url').value);
+  const pv=document.getElementById('preview');
+  if(!id){ pv.classList.remove('on'); return; }
+  document.getElementById('p-thumb').src='https://i.ytimg.com/vi/'+id+'/mqdefault.jpg';
+  pv.classList.add('on');
+  document.getElementById('p-title-show').textContent='抓取標題中…';
+  const t=await fetchTitle(id);
+  document.getElementById('p-title-show').textContent=t||'（無法自動抓取，請手動輸入標題）';
+  if(t && !document.getElementById('f-title').value) document.getElementById('f-title').value=t;
+}
+document.getElementById('f-url').addEventListener('input',onUrlInput);
+async function pasteUrl(){
+  try{ const t=await navigator.clipboard.readText();
+    if(t){ document.getElementById('f-url').value=t.trim(); onUrlInput(); } else toast('剪貼簿是空的');
+  }catch(e){ toast('請長按輸入框手動貼上'); }
+}
+function fillCatSelect(selCat,selSub){
+  const c=document.getElementById('f-cat'), s=document.getElementById('f-sub');
+  c.innerHTML='<option value="">（未分類）</option>'+
+    tags.map(t=>'<option'+(t.name===selCat?' selected':'')+'>'+esc(t.name)+'</option>').join('')+
+    '<option value="__new">＋ 新增大標籤…</option>';
+  fillSubSelect(selCat,selSub);
+}
+function fillSubSelect(cat,selSub){
+  const s=document.getElementById('f-sub');
+  const t=tags.find(x=>x.name===cat);
+  s.innerHTML='<option value="">（不選）</option>'+
+    (t? t.subs.map(x=>'<option'+(x===selSub?' selected':'')+'>'+esc(x)+'</option>').join(''):'')+
+    (cat? '<option value="__new">＋ 新增子標籤…</option>':'');
+}
+function onCatChange(){
+  const c=document.getElementById('f-cat');
+  if(c.value==='__new'){
+    const n=prompt('新增大標籤名稱：'); 
+    if(n && n.trim() && !tags.find(t=>t.name===n.trim())){
+      tags.push({name:n.trim(),subs:[]}); saveTags(); fillCatSelect(n.trim(),'');
+    } else fillCatSelect('','');
+    return;
+  }
+  fillSubSelect(c.value,'');
+}
+document.getElementById('f-sub').addEventListener('change',function(){
+  if(this.value!=='__new') return;
+  const cat=document.getElementById('f-cat').value;
+  const t=tags.find(x=>x.name===cat); if(!t){ this.value=''; return; }
+  const n=prompt('在「'+cat+'」下新增子標籤：');
+  if(n && n.trim() && !t.subs.includes(n.trim())){ t.subs.push(n.trim()); saveTags(); fillSubSelect(cat,n.trim()); }
+  else fillSubSelect(cat,'');
+});
+function collectMarks(){
+  const out=[];
+  document.querySelectorAll('#marks-box .mark-row').forEach(r=>{
+    const t=parseTime(r.querySelector('.tc').value);
+    const note=r.querySelector('.mk').value.trim();
+    if(t!=null || note) out.push({t:t!=null?t:0, note});
+  });
+  return out.sort((a,b)=>a.t-b.t);
+}
+function saveEntry(){
+  const url=document.getElementById('f-url').value.trim();
+  const vid=extractId(url);
+  if(!vid){ toast('請先貼上有效的 YouTube 網址'); return; }
+  const data={
+    vid, url:'https://www.youtube.com/watch?v='+vid,
+    title:document.getElementById('f-title').value.trim()||'（未命名影片）',
+    memo:document.getElementById('f-memo').value.trim(),
+    marks:collectMarks(),
+    cat:document.getElementById('f-cat').value||'',
+    sub:document.getElementById('f-sub').value||''
+  };
+  if(data.cat==='__new') data.cat=''; if(data.sub==='__new') data.sub='';
+  if(editingId){
+    const e=entries.find(x=>x.id===editingId);
+    Object.assign(e,data); toast('已更新');
+  }else{
+    entries.push({id:uid(), savedAt:new Date().toISOString(), ...data});
+    toast('已存入 ✓ 日期自動記錄');
+  }
+  saveEntries(); clearForm(); showView('lib');
+}
+function clearForm(){
+  editingId=null;
+  document.getElementById('f-url').value=''; document.getElementById('f-title').value='';
+  document.getElementById('f-memo').value=''; document.getElementById('preview').classList.remove('on');
+  resetMarks(); fillCatSelect('','');
+  document.getElementById('save-btn').textContent='存 入 筆 記 館';
+  document.getElementById('cancel-edit').style.display='none';
+}
+function cancelEdit(){ clearForm(); showView('lib'); }
+function editEntry(id){
+  const e=entries.find(x=>x.id===id); if(!e) return;
+  editingId=id;
+  document.getElementById('f-url').value=e.url; onUrlInput();
+  document.getElementById('f-title').value=e.title;
+  document.getElementById('f-memo').value=e.memo;
+  resetMarks(e.marks); fillCatSelect(e.cat,e.sub);
+  document.getElementById('save-btn').textContent='更 新 這 筆 記 錄';
+  document.getElementById('cancel-edit').style.display='block';
+  showView('add');
+}
+function delEntry(id){
+  const e=entries.find(x=>x.id===id); if(!e) return;
+  if(!confirm('確定刪除「'+e.title+'」？')) return;
+  entries=entries.filter(x=>x.id!==id); saveEntries();
+  renderLib(); renderCal(); toast('已刪除');
+}
+function jump(vid,t){ window.open('https://www.youtube.com/watch?v='+vid+'&t='+t+'s','_blank'); }
+
+/* ───────── 卡片渲染（影片庫與日曆共用） ───────── */
+function cardHtml(e){
+  const marks=(e.marks||[]).map(m=>
+    '<button class="mark-btn" onclick="jump(\''+e.vid+'\','+m.t+')">'+
+    '<span class="tc">'+fmtTime(m.t)+'</span><span class="mn">'+esc(m.note||'（跳到此段）')+'</span></button>').join('');
+  return '<div class="card">'+
+    '<div class="top"><img class="thumb" loading="lazy" src="https://i.ytimg.com/vi/'+e.vid+'/mqdefault.jpg" onclick="jump(\''+e.vid+'\',0)">'+
+    '<div class="ti">'+esc(e.title)+'</div></div>'+
+    '<div class="badges"><span class="badge date">'+fmtDate(e.savedAt)+'</span>'+
+    (e.cat?'<span class="badge cat">'+esc(e.cat)+'</span>':'')+
+    (e.sub?'<span class="badge sub">'+esc(e.sub)+'</span>':'')+'</div>'+
+    (e.memo?'<div class="memo">'+esc(e.memo)+'</div>':'')+
+    (marks?'<div class="marks">'+marks+'</div>':'')+
+    '<div class="acts"><button class="btn-mini" onclick="editEntry(\''+e.id+'\')">✎ 編輯</button>'+
+    '<button class="btn-danger" onclick="delEntry(\''+e.id+'\')">刪除</button></div></div>';
+}
+
+/* ───────── 影片庫：關鍵字＋二層標籤搜尋 ───────── */
+let fCat='', fSub='';
+function renderLib(){
+  const cc=document.getElementById('cat-chips');
+  cc.innerHTML='<button class="chip'+(fCat===''?' on':'')+'" onclick="setCat(\'\')">全部</button>'+
+    tags.map(t=>'<button class="chip'+(fCat===t.name?' on':'')+'" onclick="setCat(\''+esc(t.name)+'\')">'+esc(t.name)+'</button>').join('');
+  const sc=document.getElementById('sub-chips');
+  const t=tags.find(x=>x.name===fCat);
+  sc.innerHTML=(t&&t.subs.length)?
+    '<button class="chip sub'+(fSub===''?' on':'')+'" onclick="setSub(\'\')">全部子標籤</button>'+
+    t.subs.map(s=>'<button class="chip sub'+(fSub===s?' on':'')+'" onclick="setSub(\''+esc(s)+'\')">'+esc(s)+'</button>').join('') : '';
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  let list=[...entries].sort((a,b)=>b.savedAt.localeCompare(a.savedAt));
+  if(fCat) list=list.filter(e=>e.cat===fCat);
+  if(fSub) list=list.filter(e=>e.sub===fSub);
+  if(q) list=list.filter(e=>
+    (e.title+' '+e.memo+' '+(e.marks||[]).map(m=>m.note).join(' ')).toLowerCase().includes(q));
+  document.getElementById('lib-list').innerHTML =
+    list.length? list.map(cardHtml).join('') :
+    '<div class="empty"><b>目前沒有符合的影片</b><br>試試換個標籤或關鍵字，或到「新增」存入第一支。</div>';
+}
+function setCat(c){ fCat=c; fSub=''; renderLib(); }
+function setSub(s){ fSub=s; renderLib(); }
+
+/* ───────── 日曆搜尋 ───────── */
+let calY=new Date().getFullYear(), calM=new Date().getMonth(), calSel='';
+function calMove(d){ calM+=d; if(calM<0){calM=11;calY--;} if(calM>11){calM=0;calY++;} renderCal(); }
+function renderCal(){
+  document.getElementById('cal-month').textContent=calY+' 年 '+(calM+1)+' 月';
+  const map={};
+  entries.forEach(e=>{ const k=dayKey(e.savedAt); map[k]=(map[k]||0)+1; });
+  const first=new Date(calY,calM,1), start=first.getDay();
+  const days=new Date(calY,calM+1,0).getDate();
+  const todayK=dayKey(new Date().toISOString());
+  let html=['日','一','二','三','四','五','六'].map(w=>'<div class="wd">'+w+'</div>').join('');
+  for(let i=0;i<start;i++) html+='<div class="d out"></div>';
+  for(let d=1;d<=days;d++){
+    const k=calY+'/'+String(calM+1).padStart(2,'0')+'/'+String(d).padStart(2,'0');
+    const has=map[k], sel=(calSel===k), today=(k===todayK);
+    html+='<button class="d'+(has?' has':'')+(sel?' sel':'')+(today?' today':'')+'" '+
+      (has?('onclick="calPick(\''+k+'\')"'):'disabled')+'>'+
+      '<span class="n">'+d+'</span>'+(has?'<span class="cnt">'+has+'部</span>':'')+'</button>';
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+  renderCalList();
+}
+function calPick(k){ calSel=(calSel===k?'':k); renderCal(); }
+function renderCalList(){
+  const label=document.getElementById('cal-sel-label'), box=document.getElementById('cal-list');
+  if(!calSel){ label.innerHTML='點選有金點的日期，列出當天存入的影片。'; box.innerHTML=''; return; }
+  const list=entries.filter(e=>dayKey(e.savedAt)===calSel).sort((a,b)=>b.savedAt.localeCompare(a.savedAt));
+  label.innerHTML='<b>'+calSel+'</b>　存入 '+list.length+' 部影片';
+  box.innerHTML=list.map(cardHtml).join('');
+}
+
+/* ───────── 標籤管理 ───────── */
+function renderTagAdmin(){
+  document.getElementById('tag-admin').innerHTML=tags.map((t,i)=>
+    '<div class="tagbox"><div class="tn"><b>'+esc(t.name)+'</b>'+
+    '<button class="btn-mini" onclick="renameCat('+i+')">改名</button>'+
+    '<button class="btn-danger" onclick="delCat('+i+')">刪除</button></div>'+
+    '<div class="chips">'+t.subs.map((s,j)=>
+      '<button class="chip sub" onclick="delSub('+i+','+j+')">'+esc(s)+' ✕</button>').join('')+
+    '<button class="chip sub" style="border-style:dashed" onclick="addSub('+i+')">＋ 子標籤</button></div></div>'
+  ).join('') || '<p class="hint">尚無標籤，先在上方新增一個大標籤。</p>';
+}
+function addCat(){
+  const el=document.getElementById('new-cat'); const n=el.value.trim();
+  if(!n) return; if(tags.find(t=>t.name===n)){ toast('標籤已存在'); return; }
+  tags.push({name:n,subs:[]}); saveTags(); el.value=''; renderTagAdmin();
+}
+function renameCat(i){
+  const n=prompt('新名稱：',tags[i].name); if(!n||!n.trim()) return;
+  const old=tags[i].name; tags[i].name=n.trim();
+  entries.forEach(e=>{ if(e.cat===old) e.cat=n.trim(); });
+  saveTags(); saveEntries(); renderTagAdmin();
+}
+function delCat(i){
+  const used=entries.filter(e=>e.cat===tags[i].name).length;
+  if(!confirm('刪除大標籤「'+tags[i].name+'」？'+(used?('（'+used+' 部影片將變為未分類）'):''))) return;
+  const old=tags[i].name;
+  entries.forEach(e=>{ if(e.cat===old){ e.cat=''; e.sub=''; } });
+  tags.splice(i,1); saveTags(); saveEntries(); renderTagAdmin();
+}
+function addSub(i){
+  const n=prompt('在「'+tags[i].name+'」下新增子標籤：'); if(!n||!n.trim()) return;
+  if(tags[i].subs.includes(n.trim())){ toast('已存在'); return; }
+  tags[i].subs.push(n.trim()); saveTags(); renderTagAdmin();
+}
+function delSub(i,j){
+  const s=tags[i].subs[j];
+  const used=entries.filter(e=>e.cat===tags[i].name&&e.sub===s).length;
+  if(!confirm('刪除子標籤「'+s+'」？'+(used?('（'+used+' 部影片的子標籤會清空）'):''))) return;
+  entries.forEach(e=>{ if(e.cat===tags[i].name&&e.sub===s) e.sub=''; });
+  tags[i].subs.splice(j,1); saveTags(); saveEntries(); renderTagAdmin();
+}
+
+/* ───────── 備份 ───────── */
+function renderStat(){
+  document.getElementById('stat').textContent=
+    '目前共 '+entries.length+' 部影片、'+tags.length+' 個大標籤、'+
+    tags.reduce((a,t)=>a+t.subs.length,0)+' 個子標籤。';
+}
+function exportJson(){
+  const blob=new Blob([JSON.stringify({entries,tags},null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='YT筆記館備份_'+fmtDate(new Date().toISOString()).replace(/\//g,'')+'.json';
+  a.click(); toast('已匯出');
+}
+function loadXlsxLib(){
+  return new Promise((res,rej)=>{
+    if(window.XLSX) return res();
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=res; s.onerror=rej;
+    document.head.appendChild(s);
+  });
+}
+async function exportExcel(){
+  if(!entries.length){ toast('目前沒有資料可匯出'); return; }
+  toast('產生 Excel 中…');
+  try{ await loadXlsxLib(); }catch(e){ toast('無法載入 Excel 元件，請確認網路後再試'); return; }
+  const sorted=[...entries].sort((a,b)=>b.savedAt.localeCompare(a.savedAt));
+  /* 工作表一：影片清單（一部影片一列） */
+  const rows1=sorted.map(e=>({
+    '保存日期':fmtDate(e.savedAt),
+    '影片標題':e.title,
+    '大標籤':e.cat||'',
+    '子標籤':e.sub||'',
+    '看後心得':e.memo||'',
+    '時間重點':(e.marks||[]).map(m=>fmtTime(m.t)+'　'+(m.note||'')).join('\n'),
+    '影片網址':e.url
+  }));
+  const ws1=XLSX.utils.json_to_sheet(rows1);
+  ws1['!cols']=[{wch:12},{wch:42},{wch:10},{wch:12},{wch:45},{wch:42},{wch:36}];
+  rows1.forEach((r,i)=>{
+    const c=ws1[XLSX.utils.encode_cell({r:i+1,c:6})];
+    if(c) c.l={Target:r['影片網址']};
+  });
+  /* 工作表二：時間重點（一個重點一列，附跳段連結） */
+  const rows2=[];
+  sorted.forEach(e=>(e.marks||[]).forEach(m=>rows2.push({
+    '保存日期':fmtDate(e.savedAt),
+    '影片標題':e.title,
+    '時間':fmtTime(m.t),
+    '重點':m.note||'',
+    '跳段網址':'https://www.youtube.com/watch?v='+e.vid+'&t='+m.t+'s'
+  })));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws1,'影片清單');
+  if(rows2.length){
+    const ws2=XLSX.utils.json_to_sheet(rows2);
+    ws2['!cols']=[{wch:12},{wch:42},{wch:9},{wch:45},{wch:42}];
+    rows2.forEach((r,i)=>{
+      const c=ws2[XLSX.utils.encode_cell({r:i+1,c:4})];
+      if(c) c.l={Target:r['跳段網址']};
+    });
+    XLSX.utils.book_append_sheet(wb,ws2,'時間重點');
+  }
+  XLSX.writeFile(wb,'YT筆記館_'+fmtDate(new Date().toISOString()).replace(/\//g,'')+'.xlsx');
+  toast('Excel 已匯出');
+}
+function importJson(el){
+  const f=el.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+      const j=JSON.parse(r.result);
+      if(!Array.isArray(j.entries)||!Array.isArray(j.tags)) throw 0;
+      if(!confirm('匯入 '+j.entries.length+' 部影片？（會與現有資料合併，重複的以匯入版為準）')) return;
+      const map=new Map(entries.map(e=>[e.id,e]));
+      j.entries.forEach(e=>map.set(e.id,e));
+      entries=[...map.values()];
+      j.tags.forEach(t=>{ const ex=tags.find(x=>x.name===t.name);
+        if(ex){ t.subs.forEach(s=>{ if(!ex.subs.includes(s)) ex.subs.push(s); }); } else tags.push(t); });
+      saveEntries(); saveTags(); renderStat(); toast('匯入完成');
+    }catch(e){ toast('檔案格式不正確'); } el.value=''; };
+  r.readAsText(f);
+}
+
+/* ───────── 分享目標（Android 分享選單帶入） ───────── */
+(function(){
+  const p=new URLSearchParams(location.search);
+  const shared=[p.get('url'),p.get('text'),p.get('title')].filter(Boolean).join(' ');
+  const id=extractId(shared);
+  if(id){
+    document.getElementById('f-url').value='https://www.youtube.com/watch?v='+id;
+    onUrlInput(); showView('add');
+    history.replaceState(null,'',location.pathname);
+  }
+})();
+
+/* ───────── 初始化 ───────── */
+resetMarks(); fillCatSelect('','');
+if('serviceWorker' in navigator && location.protocol==='https:')
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body>
+</html>
