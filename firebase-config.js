@@ -10,6 +10,5 @@ window.FIREBASE_CONFIG = {
   projectId: "yt2-memo",
   storageBucket: "yt2-memo.firebasestorage.app",
   messagingSenderId: "458770757853",
-  appId: "1:458770757853:web:65beb0c81974e92b178334",
-  measurementId: "G-C5C6PF69R0"
+  appId: "1:458770757853:web:65beb0c81974e92b178334"
 };
