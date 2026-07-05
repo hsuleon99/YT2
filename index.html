@@ -153,7 +153,7 @@ nav.tab button.on{color:var(--gold)}
   <textarea id="f-memo" placeholder="這支影片給我的重點與感想…"></textarea>
 
   <h2 class="sec">時間重點標記</h2>
-  <p class="hint" style="margin:0 0 8px">時間格式：12:34 或 1:02:45，之後在清單按一下就能跳到該段。</p>
+  <p class="hint" style="margin:0 0 8px">直接打數字就好：打 1350 會自動變成 13:50。之後在清單按一下就能跳到該段。</p>
   <div id="marks-box"></div>
   <button class="btn-mini" onclick="addMarkRow()">＋ 再加一行</button>
 
@@ -345,6 +345,15 @@ async function onUrlInput(){
   if(t && !document.getElementById('f-title').value) document.getElementById('f-title').value=t;
 }
 document.getElementById('f-url').addEventListener('input',onUrlInput);
+/* 時間欄自動補冒號：1350 → 13:50、12345 → 1:23:45 */
+document.getElementById('marks-box').addEventListener('input',ev=>{
+  if(!ev.target.classList.contains('tc')) return;
+  const d=ev.target.value.replace(/\D/g,'').slice(0,6);
+  let out=d;
+  if(d.length>4) out=d.slice(0,-4)+':'+d.slice(-4,-2)+':'+d.slice(-2);
+  else if(d.length>2) out=d.slice(0,-2)+':'+d.slice(-2);
+  ev.target.value=out;
+});
 async function pasteUrl(){
   try{ const t=await navigator.clipboard.readText();
     if(t){ document.getElementById('f-url').value=t.trim(); onUrlInput(); } else toast('剪貼簿是空的');
@@ -657,6 +666,8 @@ function importJson(el){
 
 /* ───────── 初始化 ───────── */
 resetMarks(); fillCatSelect('','');
+/* 保險二：向瀏覽器申請「持久儲存」，避免手機空間清理時把資料與登入狀態掃掉 */
+if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 if('serviceWorker' in navigator && location.protocol==='https:')
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
@@ -670,7 +681,8 @@ if (!cfg || !cfg.apiKey || String(cfg.apiKey).indexOf('請貼上') === 0) {
   try {
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
     const { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
-            onAuthStateChanged, signOut } =
+            onAuthStateChanged, signOut, setPersistence,
+            indexedDBLocalPersistence, browserLocalPersistence } =
       await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
     const { initializeFirestore, persistentLocalCache, doc, getDoc, getDocs, setDoc, deleteDoc,
             collection, onSnapshot, writeBatch } =
@@ -678,6 +690,11 @@ if (!cfg || !cfg.apiKey || String(cfg.apiKey).indexOf('請貼上') === 0) {
 
     const app  = initializeApp(cfg);
     const auth = getAuth(app);
+    /* 登入狀態永久保存：優先用 indexedDB（PWA 最可靠），不行再退 localStorage */
+    try { await setPersistence(auth, indexedDBLocalPersistence); }
+    catch(e){ try { await setPersistence(auth, browserLocalPersistence); } catch(e2){} }
+    const stEl=document.getElementById('cloud-status');
+    if(stEl) stEl.textContent='☁️ 連線中，正在恢復登入狀態…';
     let db;
     try { db = initializeFirestore(app, { localCache: persistentLocalCache() }); }
     catch(e){ db = initializeFirestore(app, {}); }

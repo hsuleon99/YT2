@@ -1,4 +1,4 @@
-const CACHE = 'ytm-v3';
+const CACHE = 'ytm-v4';
 const SHELL = ['./index.html', './manifest.json', './firebase-config.js', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
