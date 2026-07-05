@@ -8,6 +8,7 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
+<script src="./firebase-config.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
 <style>
@@ -191,6 +192,15 @@ nav.tab button.on{color:var(--gold)}
 
 <!-- ═══ 更多：標籤管理＋備份 ═══ -->
 <section id="view-more" class="view">
+  <h2 class="sec">雲端同步</h2>
+  <div class="tagbox">
+    <div id="cloud-status" class="hint">載入中…</div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="cloud-login" style="display:none" onclick="window.cloud&&window.cloud.login()">🔐 用 Google 登入啟用同步</button>
+      <button class="btn" id="cloud-logout" style="display:none" onclick="window.cloud&&window.cloud.logout()">登出（回到本機模式）</button>
+    </div>
+  </div>
+
   <h2 class="sec">標籤管理（二層）</h2>
   <div class="row">
     <input type="text" id="new-cat" placeholder="新增大標籤，如：法律">
@@ -236,6 +246,41 @@ if(!Array.isArray(tags)||!tags.length){
 }
 function saveEntries(){ localStorage.setItem(LS_E,JSON.stringify(entries)); }
 function saveTags(){ localStorage.setItem(LS_T,JSON.stringify(tags)); }
+/* 標籤異動：本機＋雲端一起存 */
+function tagsChanged(){ saveTags(); if(window.cloud) window.cloud.saveTags(); }
+/* 多筆影片異動時推上雲端 */
+function pushEntries(list){ if(window.cloud) list.forEach(e=>window.cloud.upsert(e)); }
+/* 重繪目前所在的頁面（雲端資料進來時用） */
+function refreshCurrentView(){
+  if(document.getElementById('view-lib').classList.contains('on')) renderLib();
+  if(document.getElementById('view-cal').classList.contains('on')) renderCal();
+  if(document.getElementById('view-more').classList.contains('on')){ renderTagAdmin(); renderStat(); }
+}
+/* 雲端同步狀態顯示 */
+function updateCloudUI(user,noConfig){
+  const st=document.getElementById('cloud-status'),
+        li=document.getElementById('cloud-login'),
+        lo=document.getElementById('cloud-logout');
+  if(noConfig){
+    st.innerHTML='目前為<b style="color:var(--gold-soft)">本機模式</b>：資料只存在這台裝置。要跨裝置同步，請依 README 設定 Firebase 後重新上傳。';
+    li.style.display='none'; lo.style.display='none'; return;
+  }
+  if(user){
+    st.innerHTML='☁️ <b style="color:var(--ok)">同步中</b>：'+esc(user.email||user.uid)+'<br>用同一個 Google 帳號登入的所有裝置，即時共用同一份筆記。';
+    li.style.display='none'; lo.style.display='block';
+  }else{
+    st.textContent='已連上 Firebase。登入 Google 後，這台裝置的資料會自動與雲端合併並開始同步。';
+    li.style.display='block'; lo.style.display='none';
+  }
+}
+/* 讓 module script 能存取這裡的狀態 */
+Object.defineProperty(window,'__ytm',{value:{
+  get entries(){return entries}, set entries(v){entries=v},
+  get tags(){return tags}, set tags(v){tags=v},
+  saveEntriesLocal:()=>localStorage.setItem(LS_E,JSON.stringify(entries)),
+  saveTagsLocal:()=>localStorage.setItem(LS_T,JSON.stringify(tags)),
+  refresh:refreshCurrentView, updateCloudUI, toast:(m)=>toast(m)
+}});
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 
 /* ───────── 小工具 ───────── */
@@ -324,7 +369,7 @@ function onCatChange(){
   if(c.value==='__new'){
     const n=prompt('新增大標籤名稱：'); 
     if(n && n.trim() && !tags.find(t=>t.name===n.trim())){
-      tags.push({name:n.trim(),subs:[]}); saveTags(); fillCatSelect(n.trim(),'');
+      tags.push({name:n.trim(),subs:[]}); tagsChanged(); fillCatSelect(n.trim(),'');
     } else fillCatSelect('','');
     return;
   }
@@ -335,7 +380,7 @@ document.getElementById('f-sub').addEventListener('change',function(){
   const cat=document.getElementById('f-cat').value;
   const t=tags.find(x=>x.name===cat); if(!t){ this.value=''; return; }
   const n=prompt('在「'+cat+'」下新增子標籤：');
-  if(n && n.trim() && !t.subs.includes(n.trim())){ t.subs.push(n.trim()); saveTags(); fillSubSelect(cat,n.trim()); }
+  if(n && n.trim() && !t.subs.includes(n.trim())){ t.subs.push(n.trim()); tagsChanged(); fillSubSelect(cat,n.trim()); }
   else fillSubSelect(cat,'');
 });
 function collectMarks(){
@@ -362,9 +407,10 @@ function saveEntry(){
   if(data.cat==='__new') data.cat=''; if(data.sub==='__new') data.sub='';
   if(editingId){
     const e=entries.find(x=>x.id===editingId);
-    Object.assign(e,data); toast('已更新');
+    Object.assign(e,data); pushEntries([e]); toast('已更新');
   }else{
-    entries.push({id:uid(), savedAt:new Date().toISOString(), ...data});
+    const ne={id:uid(), savedAt:new Date().toISOString(), ...data};
+    entries.push(ne); pushEntries([ne]);
     toast('已存入 ✓ 日期自動記錄');
   }
   saveEntries(); clearForm(); showView('lib');
@@ -393,6 +439,7 @@ function delEntry(id){
   const e=entries.find(x=>x.id===id); if(!e) return;
   if(!confirm('確定刪除「'+e.title+'」？')) return;
   entries=entries.filter(x=>x.id!==id); saveEntries();
+  if(window.cloud) window.cloud.remove(id);
   renderLib(); renderCal(); toast('已刪除');
 }
 function jump(vid,t){ window.open('https://www.youtube.com/watch?v='+vid+'&t='+t+'s','_blank'); }
@@ -483,32 +530,35 @@ function renderTagAdmin(){
 function addCat(){
   const el=document.getElementById('new-cat'); const n=el.value.trim();
   if(!n) return; if(tags.find(t=>t.name===n)){ toast('標籤已存在'); return; }
-  tags.push({name:n,subs:[]}); saveTags(); el.value=''; renderTagAdmin();
+  tags.push({name:n,subs:[]}); tagsChanged(); el.value=''; renderTagAdmin();
 }
 function renameCat(i){
   const n=prompt('新名稱：',tags[i].name); if(!n||!n.trim()) return;
   const old=tags[i].name; tags[i].name=n.trim();
-  entries.forEach(e=>{ if(e.cat===old) e.cat=n.trim(); });
-  saveTags(); saveEntries(); renderTagAdmin();
+  const hit=entries.filter(e=>e.cat===old);
+  hit.forEach(e=>e.cat=n.trim());
+  tagsChanged(); saveEntries(); pushEntries(hit); renderTagAdmin();
 }
 function delCat(i){
   const used=entries.filter(e=>e.cat===tags[i].name).length;
   if(!confirm('刪除大標籤「'+tags[i].name+'」？'+(used?('（'+used+' 部影片將變為未分類）'):''))) return;
   const old=tags[i].name;
-  entries.forEach(e=>{ if(e.cat===old){ e.cat=''; e.sub=''; } });
-  tags.splice(i,1); saveTags(); saveEntries(); renderTagAdmin();
+  const hit=entries.filter(e=>e.cat===old);
+  hit.forEach(e=>{ e.cat=''; e.sub=''; });
+  tags.splice(i,1); tagsChanged(); saveEntries(); pushEntries(hit); renderTagAdmin();
 }
 function addSub(i){
   const n=prompt('在「'+tags[i].name+'」下新增子標籤：'); if(!n||!n.trim()) return;
   if(tags[i].subs.includes(n.trim())){ toast('已存在'); return; }
-  tags[i].subs.push(n.trim()); saveTags(); renderTagAdmin();
+  tags[i].subs.push(n.trim()); tagsChanged(); renderTagAdmin();
 }
 function delSub(i,j){
   const s=tags[i].subs[j];
   const used=entries.filter(e=>e.cat===tags[i].name&&e.sub===s).length;
   if(!confirm('刪除子標籤「'+s+'」？'+(used?('（'+used+' 部影片的子標籤會清空）'):''))) return;
-  entries.forEach(e=>{ if(e.cat===tags[i].name&&e.sub===s) e.sub=''; });
-  tags[i].subs.splice(j,1); saveTags(); saveEntries(); renderTagAdmin();
+  const hit=entries.filter(e=>e.cat===tags[i].name&&e.sub===s);
+  hit.forEach(e=>e.sub='');
+  tags[i].subs.splice(j,1); tagsChanged(); saveEntries(); pushEntries(hit); renderTagAdmin();
 }
 
 /* ───────── 備份 ───────── */
@@ -588,7 +638,7 @@ function importJson(el){
       entries=[...map.values()];
       j.tags.forEach(t=>{ const ex=tags.find(x=>x.name===t.name);
         if(ex){ t.subs.forEach(s=>{ if(!ex.subs.includes(s)) ex.subs.push(s); }); } else tags.push(t); });
-      saveEntries(); saveTags(); renderStat(); toast('匯入完成');
+      saveEntries(); tagsChanged(); pushEntries(j.entries); renderStat(); toast('匯入完成');
     }catch(e){ toast('檔案格式不正確'); } el.value=''; };
   r.readAsText(f);
 }
@@ -609,6 +659,102 @@ function importJson(el){
 resetMarks(); fillCatSelect('','');
 if('serviceWorker' in navigator && location.protocol==='https:')
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+<script type="module">
+/* ═══ Firebase 雲端同步層（未設定 firebase-config.js 時自動維持本機模式） ═══ */
+const S = window.__ytm;
+const cfg = window.FIREBASE_CONFIG;
+if (!cfg || !cfg.apiKey || String(cfg.apiKey).indexOf('請貼上') === 0) {
+  S.updateCloudUI(null, true);
+} else {
+  try {
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+    const { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+            onAuthStateChanged, signOut } =
+      await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+    const { initializeFirestore, persistentLocalCache, doc, getDoc, getDocs, setDoc, deleteDoc,
+            collection, onSnapshot, writeBatch } =
+      await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+
+    const app  = initializeApp(cfg);
+    const auth = getAuth(app);
+    let db;
+    try { db = initializeFirestore(app, { localCache: persistentLocalCache() }); }
+    catch(e){ db = initializeFirestore(app, {}); }
+
+    let uid = null, unsubE = null, unsubT = null;
+    const eCol  = () => collection(db, 'users', uid, 'entries');
+    const eDoc  = id => doc(db, 'users', uid, 'entries', id);
+    const tDoc  = () => doc(db, 'users', uid, 'meta', 'tags');
+
+    function unionTags(a, b){
+      const map = new Map();
+      [...a, ...b].forEach(t => {
+        const ex = map.get(t.name);
+        if (ex) (t.subs||[]).forEach(s => { if (!ex.subs.includes(s)) ex.subs.push(s); });
+        else map.set(t.name, { name: t.name, subs: [...(t.subs||[])] });
+      });
+      return [...map.values()];
+    }
+
+    window.cloud = {
+      async login(){
+        const p = new GoogleAuthProvider();
+        try { await signInWithPopup(auth, p); }
+        catch(e){
+          if (e && (e.code==='auth/popup-blocked' || e.code==='auth/popup-closed-by-user' ||
+                    e.code==='auth/operation-not-supported-in-this-environment')) {
+            try { await signInWithRedirect(auth, p); } catch(e2){ S.toast('登入失敗：'+(e2.code||e2)); }
+          } else S.toast('登入失敗：'+(e.code||e));
+        }
+      },
+      async logout(){ await signOut(auth); S.toast('已登出，回到本機模式'); },
+      upsert(en){ if(!uid) return; setDoc(eDoc(en.id), en).catch(()=>S.toast('雲端寫入失敗，稍後會自動重試')); },
+      remove(id){ if(!uid) return; deleteDoc(eDoc(id)).catch(()=>{}); },
+      saveTags(){ if(!uid) return; setDoc(tDoc(), { tags: S.tags }).catch(()=>{}); }
+    };
+
+    getRedirectResult(auth).catch(()=>{});
+    onAuthStateChanged(auth, async user => {
+      if (unsubE){ unsubE(); unsubE = null; }
+      if (unsubT){ unsubT(); unsubT = null; }
+      uid = user ? user.uid : null;
+      S.updateCloudUI(user, false);
+      if (!user) return;
+
+      try {
+        /* 首次登入：本機與雲端「合併」，兩邊都不會少 */
+        const snap = await getDocs(eCol());
+        const cloudIds = new Set(); snap.forEach(d => cloudIds.add(d.id));
+        const localOnly = S.entries.filter(e => !cloudIds.has(e.id));
+        for (let i = 0; i < localOnly.length; i += 400) {
+          const b = writeBatch(db);
+          localOnly.slice(i, i+400).forEach(e => b.set(eDoc(e.id), e));
+          await b.commit();
+        }
+        const td = await getDoc(tDoc());
+        const merged = td.exists() && Array.isArray(td.data().tags)
+          ? unionTags(td.data().tags, S.tags) : S.tags;
+        await setDoc(tDoc(), { tags: merged });
+      } catch(e){ console.warn('首次合併失敗', e); S.toast('雲端合併時出了點狀況，同步仍會繼續'); }
+
+      /* 即時監聽：任何裝置一改，這裡馬上更新 */
+      unsubE = onSnapshot(eCol(), snap => {
+        const arr = []; snap.forEach(d => arr.push(d.data()));
+        S.entries = arr; S.saveEntriesLocal(); S.refresh();
+      });
+      unsubT = onSnapshot(tDoc(), d => {
+        if (d.exists() && Array.isArray(d.data().tags)) {
+          S.tags = d.data().tags; S.saveTagsLocal(); S.refresh();
+        }
+      });
+    });
+  } catch(e){
+    console.warn('Firebase 載入失敗', e);
+    S.updateCloudUI(null, true);
+    S.toast('無法連上 Firebase，先以本機模式運作');
+  }
+}
 </script>
 </body>
 </html>
