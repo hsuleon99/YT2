@@ -4,7 +4,7 @@
    （取得方式見 README 第七章，步驟 6）
    還沒設定時，App 會自動以「本機模式」運作，不會壞。
    ═══════════════════════════════════════════════════════════ */
-const firebaseConfig = {
+window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyC_ajaRHBTGiER4EgvavUrOL0luL9X1v4Y",
   authDomain: "yt2-memo.firebaseapp.com",
   projectId: "yt2-memo",
