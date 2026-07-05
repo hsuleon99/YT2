@@ -5,10 +5,10 @@
    還沒設定時，App 會自動以「本機模式」運作，不會壞。
    ═══════════════════════════════════════════════════════════ */
 window.FIREBASE_CONFIG = {
-  apiKey:            "請貼上您的apiKey",
-  authDomain:        "請貼上您的authDomain",
-  projectId:         "請貼上您的projectId",
-  storageBucket:     "請貼上您的storageBucket",
-  messagingSenderId: "請貼上您的messagingSenderId",
-  appId:             "請貼上您的appId"
+  apiKey: "AIzaSyC_ajaRHBTGiER4EgvavUrOL0luL9X1v4Y",
+  authDomain: "yt2-memo.firebaseapp.com",
+  projectId: "yt2-memo",
+  storageBucket: "yt2-memo.firebasestorage.app",
+  messagingSenderId: "458770757853",
+  appId: "1:458770757853:web:65beb0c81974e92b178334"
 };
